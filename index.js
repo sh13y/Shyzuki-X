@@ -29,6 +29,9 @@ const ALLOWED_NUMBERS = (process.env.ALLOWED_NUMBERS || '')
 // The reply message
 const REPLY_MESSAGE = process.env.REPLY_MESSAGE || 'Hello! This is an automated reply.';
 
+// Optional bot phone number for Pairing Code login (e.g. 94771234567)
+const BOT_PHONE_NUMBER = (process.env.BOT_PHONE_NUMBER || '').trim().replace(/\D/g, '');
+
 // Detect environment
 const IS_LINUX = process.platform === 'linux';
 
@@ -44,6 +47,7 @@ console.log('─'.repeat(60));
 console.log('  WhatsApp Auto-Reply Bot');
 console.log('─'.repeat(60));
 console.log(`  Platform        : ${IS_LINUX ? 'Linux (aaPanel/VPS)' : 'Windows (local dev)'}`);
+console.log(`  Auth Mode       : ${BOT_PHONE_NUMBER ? `Pairing Code (${BOT_PHONE_NUMBER})` : 'QR Code'}`);
 console.log(`  Allowed numbers : ${ALLOWED_NUMBERS.join(', ')}`);
 console.log(`  Reply message   : "${REPLY_MESSAGE}"`);
 console.log('─'.repeat(60));
@@ -67,7 +71,7 @@ const puppeteerArgs = IS_LINUX
       '--disable-extensions'
     ];
 
-const client = new Client({
+const clientOptions = {
   authStrategy: new LocalAuth({
     dataPath: process.env.SESSION_PATH || '.wwebjs_auth'
   }),
@@ -80,14 +84,40 @@ const client = new Client({
     headless: true,
     args: puppeteerArgs
   }
-});
+};
+
+// Enable pairing code if BOT_PHONE_NUMBER is provided
+if (BOT_PHONE_NUMBER) {
+  clientOptions.pairWithPhoneNumber = {
+    phoneNumber: BOT_PHONE_NUMBER,
+    showNotification: true,
+    intervalMs: 180000 // 3 minutes refresh
+  };
+}
+
+const client = new Client(clientOptions);
 
 // ─── Event Handlers ───────────────────────────────────────────────────────────
 
+// QR Code (used if BOT_PHONE_NUMBER is not set)
 client.on('qr', (qr) => {
   console.log('\n[INFO] Scan the QR code below with WhatsApp:');
   qrcode.generate(qr, { small: true });
   console.log('[INFO] Go to WhatsApp > Linked Devices > Link a Device\n');
+});
+
+// Pairing Code (used when BOT_PHONE_NUMBER is set)
+client.on('code', (code) => {
+  console.log('\n' + '═'.repeat(60));
+  console.log('  📱 WHATSAPP PAIRING CODE');
+  console.log('═'.repeat(60));
+  console.log(`  Code :  ${code}`);
+  console.log('═'.repeat(60));
+  console.log('  1. Open WhatsApp on your phone');
+  console.log('  2. Tap 3 dots / Settings -> Linked Devices -> Link a Device');
+  console.log('  3. Tap "Link with phone number instead"');
+  console.log(`  4. Enter the code above: ${code}`);
+  console.log('═'.repeat(60) + '\n');
 });
 
 let lastPercent = -1;
