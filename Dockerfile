@@ -41,12 +41,8 @@ RUN npm install --omit=dev
 # Copy the rest of the source
 COPY index.js find-lid.js ./
 
-# Create a non-root user for security
-RUN groupadd -r botuser && useradd -r -g botuser -G audio,video botuser \
-    && mkdir -p /app/.wwebjs_auth /app/logs \
-    && chown -R botuser:botuser /app
-
-USER botuser
+# Ensure session and logs directories exist
+RUN mkdir -p /app/.wwebjs_auth /app/logs
 
 # ─── Runtime ──────────────────────────────────────────────────────────────────
 EXPOSE 3000
