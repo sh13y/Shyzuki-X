@@ -1,0 +1,32 @@
+services:
+  whatsapp-bot:
+    build: .
+    container_name: whatsapp-bot
+    restart: unless-stopped
+
+    # Load your .env file
+    env_file:
+      - .env
+
+    volumes:
+      # Persist WhatsApp session — so you don't re-scan QR on every restart
+      - ./session:/app/.wwebjs_auth
+      # Persist logs
+      - ./logs:/app/logs
+
+    # Required for Chromium inside Docker
+    cap_add:
+      - SYS_ADMIN
+
+    # Allow shared memory (prevents Chromium crashes)
+    shm_size: '256mb'
+
+    # Keep stdin open so Ctrl+C works cleanly
+    stdin_open: true
+    tty: true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

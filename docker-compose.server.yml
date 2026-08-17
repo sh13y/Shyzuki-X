@@ -1,0 +1,33 @@
+# docker-compose.server.yml
+# Use this on your aaPanel server — pulls the pre-built image from GitHub Container Registry
+# Replace YOUR_GITHUB_USERNAME and YOUR_REPO_NAME with your actual values
+#
+# Usage:
+#   docker compose -f docker-compose.server.yml up -d
+
+services:
+  whatsapp-bot:
+    image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:latest
+    container_name: whatsapp-bot
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./session:/app/.wwebjs_auth
+      - ./logs:/app/logs
+
+    cap_add:
+      - SYS_ADMIN
+
+    shm_size: '256mb'
+
+    stdin_open: true
+    tty: true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

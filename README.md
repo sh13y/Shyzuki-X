@@ -1,185 +1,308 @@
-# WhatsApp Auto-Reply Bot
+# 🤖 WhatsApp Auto-Reply Bot
 
-A simple WhatsApp bot built with [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) that automatically replies to messages from specific phone numbers only.
+> Because replying manually is so 2020.
 
----
+Built with [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) — this little guy sits on your server 24/7 and sends a reply to the people you actually care about (or want to scare off). Everyone else? Ignored. Cold. Ruthless. 😈
 
-## Features
-
-- ✅ Replies **only** to whitelisted phone numbers
-- ✅ Configurable reply message (no code changes needed)
-- ✅ Session persistence — no need to re-scan QR on restart
-- ✅ Runs on **aaPanel / Linux VPS** with PM2
-- ✅ Ignores group messages and own messages
+> ⚠️ **Disclaimer**: This uses whatsapp-web.js, an *unofficial* WhatsApp library. WhatsApp/Meta didn't make this, didn't approve this, and probably doesn't love this. Use at your own risk — your account *could* get banned, though for a simple personal bot it's very unlikely. Don't blame us if it does. 😅
 
 ---
 
-## Project Structure
+## ✨ What This Bad Boy Can Do
+
+- 💬 Replies **only** to your whitelisted numbers — strangers get the silent treatment
+- ✏️ Change the reply message anytime from `.env` — no touching code, ever
+- 🧠 Remembers your login — scan QR once, never again (unless you mess things up)
+- 🌐 Supports Sinhala, Tamil, Emoji — reply in any language you want (හෙලෝ! 👋)
+- 🚫 Ignores groups, ignores itself — no infinite loop disasters
+- 🐳 Runs on **aaPanel / Linux VPS** via Docker like a proper adult
+
+---
+
+## 📁 What's Inside the Box
 
 ```
 whatsapp-bot/
-├── index.js              # Main bot logic
-├── .env                  # Your config (create from .env.example)
-├── .env.example          # Config template
-├── ecosystem.config.js   # PM2 config for aaPanel
-├── package.json
-└── .gitignore
+├── .github/
+│   └── workflows/
+│       └── docker-build.yml      # Robots build your Docker image automatically
+├── index.js                      # The brain of the operation
+├── find-lid.js                   # Find someone's WhatsApp ID (stalker mode 👀)
+├── Dockerfile                    # Blueprint for the Docker container
+├── docker-compose.yml            # Local / build-from-source setup
+├── docker-compose.server.yml     # aaPanel server setup (pulls from ghcr.io)
+├── ecosystem.config.js           # PM2 config (if you're allergic to Docker)
+├── .env                          # YOUR secrets — don't commit this, seriously
+├── .env.example                  # Safe template to share with the world
+└── .gitignore                    # The bouncer that keeps .env off GitHub
 ```
 
 ---
 
-## Quick Start (Local)
-
-### 1. Install dependencies
-
-```bash
-npm install
-```
-
-### 2. Configure `.env`
+## ⚙️ Configuration (`.env`)
 
 ```bash
 cp .env.example .env
+nano .env   # or open it however you like
 ```
-
-Edit `.env`:
 
 ```env
-# Phone number(s) to whitelist — country code + number, no +, no spaces
-ALLOWED_NUMBERS=60123456789
+# Who gets a reply? Put their LID or phone number here (no + sign, no spaces)
+# Multiple numbers? Separate with commas like a civilized person
+ALLOWED_NUMBERS=164957362593944,232280656195825
 
-# To allow multiple numbers, separate with commas:
-# ALLOWED_NUMBERS=60123456789,60198765432
-
-# Message to send as auto-reply
-REPLY_MESSAGE=Hello! This is an automated reply. I will get back to you shortly.
+# What do you want to say? Go wild. Unicode, Emoji, Sinhala — all good.
+REPLY_MESSAGE=හෙලෝ බෝලගෙඩිය 😘
 ```
 
-### 3. Run the bot
-
-```bash
-npm start
-```
-
-Scan the QR code that appears in the terminal using **WhatsApp → Linked Devices → Link a Device**.
+> 🤔 **Not sure what LID is?** See [Finding a WhatsApp LID](#-finding-a-whatsapp-lid) below. WhatsApp got fancy with privacy stuff.
 
 ---
 
-## aaPanel Deployment Guide
+## 🚀 Quick Start (Local / Windows)
 
-### Prerequisites on your server
+For when you just want to test this thing without the whole server drama:
 
 ```bash
-# Install Node.js (v18+) via aaPanel Software Store, or:
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Install Chromium (required by Puppeteer/whatsapp-web.js)
-sudo apt-get install -y \
-  chromium-browser \
-  libgbm-dev \
-  libxkbcommon-x11-0 \
-  libgtk-3-0 \
-  libnss3 \
-  libxss1 \
-  libasound2
-
-# Install PM2 globally
-npm install -g pm2
+npm install
+cp .env.example .env   # set your numbers and message
+node index.js          # scan the QR and watch the magic happen
 ```
 
-### Upload & Setup
+That's it. Seriously.
+
+---
+
+## 🌐 Deploy to aaPanel via GitHub (The Cool Way)
+
+Push once to GitHub → GitHub robots build your Docker image → aaPanel pulls and runs it. Update the bot forever with just two commands. Chef's kiss. 🤌
+
+### Step 1 — Push to GitHub
+
+Do this once from your local machine:
 
 ```bash
-# 1. Upload the project folder to your server (e.g. /www/wwwroot/whatsapp-bot)
+cd whatsapp-bot
+
+git init
+git add .
+git commit -m "first commit, here we go 🚀"
+
+# Create a repo on github.com FIRST, then:
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+git branch -M main
+git push -u origin main
+```
+
+### Step 2 — Make the GitHub Package Public
+
+After pushing, your Docker image gets built automatically. Now make it accessible:
+
+1. Go to your GitHub repo → look for **Packages** in the right sidebar
+2. Click your package → **Package settings**
+3. Scroll down to **Danger Zone** → Change visibility → **Public**
+
+> 🔒 Keeping it private? Fine, but you'll need to log into ghcr.io on your server. See the Troubleshooting section at the bottom.
+
+### Step 3 — Wait for GitHub Actions to Build
+
+Go to your repo → **Actions** tab → watch the `Build & Push Docker Image` workflow turn green ✅ (takes ~2–3 min).
+
+Once green, your image lives at:
+```
+ghcr.io/YOUR_USERNAME/YOUR_REPO_NAME:latest
+```
+
+### Step 4 — Set Up on aaPanel Server
+
+SSH into your server and run:
+
+```bash
+# Install Docker if you haven't already (it's 2026, why don't you have Docker?)
+curl -fsSL https://get.docker.com | sh
+systemctl enable docker && systemctl start docker
+
+# Make a home for the bot
+mkdir -p /www/wwwroot/whatsapp-bot
 cd /www/wwwroot/whatsapp-bot
 
-# 2. Install dependencies
-npm install
+# Grab the files straight from your GitHub repo
+curl -o docker-compose.server.yml https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/docker-compose.server.yml
+curl -o .env.example https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/.env.example
+```
 
-# 3. Create your .env file
+### Step 5 — Edit the Compose File
+
+```bash
+nano docker-compose.server.yml
+```
+
+Find this line and replace with your actual GitHub username and repo:
+```yaml
+image: ghcr.io/YOUR_USERNAME/YOUR_REPO_NAME:latest
+```
+
+### Step 6 — Create Your `.env` on the Server
+
+```bash
 cp .env.example .env
-nano .env   # Edit with your allowed numbers and reply message
+nano .env
 ```
 
-### First Run (QR Code Scan)
-
-You must do this step interactively the first time:
-
-```bash
-node index.js
+```env
+ALLOWED_NUMBERS=164957362593944
+REPLY_MESSAGE=මං බොට් කෙනෙක් 🤖 ඉන්නම් wait කරන්න!
 ```
 
-Scan the QR code. Once you see `[READY] WhatsApp bot is online`, press `Ctrl+C`.
-
-> **Note:** After scanning, the session is saved in `.wwebjs_auth/`. The bot will stay logged in on future starts without needing to scan again.
-
-### Start with PM2 (persistent, auto-restart)
+### Step 7 — Scan the QR (First Time Only, Promise)
 
 ```bash
-# Create logs directory
+# Pull the image from GitHub
+docker compose -f docker-compose.server.yml pull
+
+# Run it interactively so you can scan the QR code
+docker compose -f docker-compose.server.yml run --rm -it whatsapp-bot
+```
+
+Open WhatsApp → **Linked Devices → Link a Device** → scan the QR.
+
+Wait for `[READY] ✓ WhatsApp bot is online` → then press `Ctrl+C`.
+
+Session is saved in `./session/` — you're done with QR codes forever. 🎉
+
+### Step 8 — Set It Free
+
+```bash
+docker compose -f docker-compose.server.yml up -d
+```
+
+The bot is now alive, running 24/7, auto-restarting if it trips over itself. Go get some sleep. 😴
+
+---
+
+## 🔄 Updating the Bot (Super Easy)
+
+Made changes? Pushed to GitHub? Just run these two commands on your server:
+
+```bash
+cd /www/wwwroot/whatsapp-bot
+docker compose -f docker-compose.server.yml pull
+docker compose -f docker-compose.server.yml up -d
+```
+
+That's literally it. The new image gets pulled, the old container gets replaced. Your session stays intact. Beautiful.
+
+---
+
+## 🛠️ Handy Docker Commands
+
+```bash
+# Watch what the bot is up to (live logs)
+docker compose -f docker-compose.server.yml logs -f
+
+# Give it a kick
+docker compose -f docker-compose.server.yml restart
+
+# Put it to sleep
+docker compose -f docker-compose.server.yml down
+
+# Wake it up again
+docker compose -f docker-compose.server.yml up -d
+
+# Is it even alive?
+docker ps
+```
+
+---
+
+## 🔍 Finding a WhatsApp LID
+
+WhatsApp decided in 2023 that phone numbers are too mainstream. Now they use random-looking **LIDs** (Linked Device Identifiers) for privacy. Your number `0776076798` becomes something like `164957362593944`. Fun, right? 🙃
+
+**Method 1 — Use the lookup tool** (stop the bot first):
+```bash
+node find-lid.js 94776076798
+```
+
+Output:
+```
+  ✓  94776076798    → LID/ID: 164957362593944
+                      Name: Poorna
+```
+
+**Method 2 — Just send a test message:**
+The bot logs every incoming message like this:
+```
+[MSG] | ID: 164957362593944 | Text: "Hi"
+[TIP]  If this is you, add "164957362593944" to ALLOWED_NUMBERS in .env
+```
+Copy that ID. Done.
+
+---
+
+## 🐌 Alternative: Run with PM2 (No Docker)
+
+If Docker scares you, here's the old-school way:
+
+```bash
+# Install stuff
+npm install
+npm install -g pm2
+
+# Scan QR once
+node index.js   # Ctrl+C after scanning
+
+# Hand it over to PM2
 mkdir -p logs
-
-# Start with PM2
 pm2 start ecosystem.config.js
-
-# Save PM2 process list (so it survives server reboots)
 pm2 save
-
-# Setup PM2 to start on boot
-pm2 startup
-# Run the command that PM2 outputs after this
+pm2 startup   # run the command it tells you to run
 ```
 
-### Useful PM2 Commands
+---
 
+## 📞 Phone Number Format
+
+No `+`, no spaces, no dashes. Just digits. It's not that deep.
+
+| Country | Number | Format for `.env` |
+|---|---|---|
+| 🇱🇰 Sri Lanka | +94 77-607-6798 | `94776076798` |
+| 🇲🇾 Malaysia | +60 12-345 6789 | `60123456789` |
+| 🇮🇳 India | +91 98765 43210 | `919876543210` |
+| 🇮🇩 Indonesia | +62 812-3456-789 | `628123456789` |
+| 🇺🇸 USA | +1 (555) 123-4567 | `15551234567` |
+
+---
+
+## 🩹 Troubleshooting
+
+**Stuck at 99% loading? Classic.**
 ```bash
-pm2 status                    # Check bot status
-pm2 logs whatsapp-bot         # View live logs
-pm2 logs whatsapp-bot --lines 100   # Last 100 log lines
-pm2 restart whatsapp-bot      # Restart the bot
-pm2 stop whatsapp-bot         # Stop the bot
-pm2 delete whatsapp-bot       # Remove from PM2
+rm -rf .wwebjs_auth session
+node index.js   # re-scan QR
 ```
 
----
+**`Error: Failed to launch the browser process` on bare server (no Docker)**
+```bash
+sudo apt install -y chromium-browser libgbm-dev libnss3 libxss1
+```
 
-## Configuration Reference
+**Bot not replying to you**
+- Check your `ALLOWED_NUMBERS` — it's probably the LID, not your phone number
+- Use `node find-lid.js YOUR_NUMBER` to find the right ID
+- Check logs: `docker compose -f docker-compose.server.yml logs -f`
 
-| Variable | Required | Description |
-|---|---|---|
-| `ALLOWED_NUMBERS` | ✅ Yes | Comma-separated phone numbers (country code + number, no `+`) |
-| `REPLY_MESSAGE` | ✅ Yes | The auto-reply text to send |
-| `SESSION_PATH` | No | Custom path for session files (default: `.wwebjs_auth`) |
-
----
-
-## Phone Number Format
-
-WhatsApp uses numbers in format `{countrycode}{number}` without any `+`, spaces, or dashes.
-
-| Country | WhatsApp Number | Written as |
-|---|---|---|
-| Malaysia | +60 12-345 6789 | `60123456789` |
-| India | +91 98765 43210 | `919876543210` |
-| Indonesia | +62 812-3456-789 | `628123456789` |
-| USA | +1 (555) 123-4567 | `15551234567` |
+**Private GitHub repo — need to log into ghcr.io on server**
+```bash
+echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+```
+Get a token: GitHub → Settings → Developer settings → Personal access tokens → `read:packages`
 
 ---
 
-## Troubleshooting
+<div align="center">
 
-**`Error: Failed to launch the browser process`**
-- Install Chromium: `sudo apt install chromium-browser`
-- Or install missing libs: `sudo apt-get install -y libgbm-dev libnss3 libxss1`
+2026 &nbsp;|&nbsp; Made in Ceylon with ❤️ by **sh13y**
 
-**`Session expired / QR keeps appearing`**
-- Delete the session folder and re-scan: `rm -rf .wwebjs_auth && node index.js`
-
-**Bot not replying**
-- Check the number format in `.env` — must be digits only, no `+`
-- Check logs: `pm2 logs whatsapp-bot`
-- Make sure the message is not from a group (bot ignores groups)
-
-**Running behind aaPanel firewall**
-- No inbound ports are needed — the bot connects outbound only
+</div>
