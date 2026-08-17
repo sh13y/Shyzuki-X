@@ -10,7 +10,26 @@
  */
 
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
+
+function cleanSingletonLocks(dir) {
+  try {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) cleanSingletonLocks(fullPath);
+      else if (entry.name.startsWith('Singleton')) {
+        try { fs.unlinkSync(fullPath); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+}
+
+const sessionPath = process.env.SESSION_PATH || '.wwebjs_auth';
+cleanSingletonLocks(sessionPath);
 
 const args = process.argv.slice(2);
 

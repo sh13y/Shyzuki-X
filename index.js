@@ -15,10 +15,32 @@
  */
 
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
-// ─── Configuration ────────────────────────────────────────────────────────────
+// Clean up stale Chromium profile locks left behind from previous container restarts/crashes
+function cleanSingletonLocks(dir) {
+  try {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        cleanSingletonLocks(fullPath);
+      } else if (entry.name.startsWith('Singleton')) {
+        try {
+          fs.unlinkSync(fullPath);
+          console.log(`[INIT] Cleared stale Chromium lock: ${entry.name}`);
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+}
+
+const sessionPath = process.env.SESSION_PATH || '.wwebjs_auth';
+cleanSingletonLocks(sessionPath);
 
 // Parse allowed numbers/LIDs from env (comma-separated)
 const ALLOWED_NUMBERS = (process.env.ALLOWED_NUMBERS || '')
