@@ -21,17 +21,18 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
 // Clean up stale Chromium profile locks left behind from previous container restarts/crashes
-function cleanSingletonLocks(dir) {
+function cleanSingletonLocks(rawDir) {
   try {
+    const dir = path.resolve(rawDir);
     if (!fs.existsSync(dir)) return;
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         cleanSingletonLocks(fullPath);
-      } else if (entry.name.startsWith('Singleton')) {
+      } else if (entry.name.startsWith('Singleton') || entry.name.includes('lock') || entry.name.includes('Lock')) {
         try {
-          fs.unlinkSync(fullPath);
+          fs.rmSync(fullPath, { force: true, recursive: true });
           console.log(`[INIT] Cleared stale Chromium lock: ${entry.name}`);
         } catch (_) {}
       }
