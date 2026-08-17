@@ -2,19 +2,19 @@
 
 > Because replying manually is so 2020.
 
-Built with [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) — this little guy sits on your server 24/7 and sends a reply to the people you actually care about (or want to scare off). Everyone else? Ignored. Cold. Ruthless. 😈
+Built with [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js). This little guy sits on your server 24/7 and sends a reply to the people you actually care about (or want to scare off). Everyone else? Ignored. Cold. Ruthless. 😈
 
-> ⚠️ **Disclaimer**: This uses whatsapp-web.js, an *unofficial* WhatsApp library. WhatsApp/Meta didn't make this, didn't approve this, and probably doesn't love this. Use at your own risk — your account *could* get banned, though for a simple personal bot it's very unlikely. Don't blame us if it does. 😅
+> ⚠️ **Disclaimer**: This uses whatsapp-web.js, an *unofficial* WhatsApp library. WhatsApp/Meta didn't make this, didn't approve this, and probably doesn't love this. Use at your own risk. Your account *could* get banned, though for a simple personal bot it's very unlikely. Don't blame us if it does. 😅
 
 ---
 
 ## ✨ What This Bad Boy Can Do
 
-- 💬 Replies **only** to your whitelisted numbers — strangers get the silent treatment
-- ✏️ Change the reply message anytime from `.env` — no touching code, ever
-- 🧠 Remembers your login — scan QR once, never again (unless you mess things up)
-- 🌐 Supports Sinhala, Tamil, Emoji — reply in any language you want (හෙලෝ! 👋)
-- 🚫 Ignores groups, ignores itself — no infinite loop disasters
+- 💬 Replies **only** to your whitelisted numbers. Strangers get the silent treatment
+- ✏️ Change the reply message anytime from `.env`. No touching code, ever
+- 🧠 Remembers your login. Scan QR once, never again (unless you mess things up)
+- 🌐 Supports Sinhala, Tamil, Emoji. Reply in any language you want (හෙලෝ! 👋)
+- 🚫 Ignores groups, ignores itself. No infinite loop disasters
 - 🐳 Runs on **aaPanel / Linux VPS** via Docker like a proper adult
 
 ---
@@ -32,7 +32,7 @@ whatsapp-bot/
 ├── docker-compose.yml            # Local / build-from-source setup
 ├── docker-compose.server.yml     # aaPanel server setup (pulls from ghcr.io)
 ├── ecosystem.config.js           # PM2 config (if you're allergic to Docker)
-├── .env                          # YOUR secrets — don't commit this, seriously
+├── .env                          # YOUR secrets - don't commit this, seriously
 ├── .env.example                  # Safe template to share with the world
 └── .gitignore                    # The bouncer that keeps .env off GitHub
 ```
@@ -49,10 +49,10 @@ nano .env   # or open it however you like
 ```env
 # Who gets a reply? Put their LID or phone number here (no + sign, no spaces)
 # Multiple numbers? Separate with commas like a civilized person
-ALLOWED_NUMBERS=164957362593944,232280656195825
+ALLOWED_NUMBERS=112233445566778,998877665544332
 
-# What do you want to say? Go wild. Unicode, Emoji, Sinhala — all good.
-REPLY_MESSAGE=හෙලෝ බෝලගෙඩිය 😘
+# What do you want to say? Go wild. Unicode, Emoji, Sinhala - all good.
+REPLY_MESSAGE=Hello! I will get back to you soon. 😊
 ```
 
 > 🤔 **Not sure what LID is?** See [Finding a WhatsApp LID](#-finding-a-whatsapp-lid) below. WhatsApp got fancy with privacy stuff.
@@ -106,7 +106,7 @@ After pushing, your Docker image gets built automatically. Now make it accessibl
 
 ### Step 3 — Wait for GitHub Actions to Build
 
-Go to your repo → **Actions** tab → watch the `Build & Push Docker Image` workflow turn green ✅ (takes ~2–3 min).
+Go to your repo -> **Actions** tab -> watch the `Build & Push Docker Image` workflow turn green ✅ (takes ~2-3 min).
 
 Once green, your image lives at:
 ```
@@ -150,8 +150,8 @@ nano .env
 ```
 
 ```env
-ALLOWED_NUMBERS=164957362593944
-REPLY_MESSAGE=මං බොට් කෙනෙක් 🤖 ඉන්නම් wait කරන්න!
+ALLOWED_NUMBERS=112233445566778
+REPLY_MESSAGE=Hello! This is an auto-reply. I will get back to you soon. 🤖
 ```
 
 ### Step 7 — Scan the QR (First Time Only, Promise)
@@ -164,9 +164,9 @@ docker compose -f docker-compose.server.yml pull
 docker compose -f docker-compose.server.yml run --rm -it whatsapp-bot
 ```
 
-Open WhatsApp → **Linked Devices → Link a Device** → scan the QR.
+Open WhatsApp -> **Linked Devices** -> **Link a Device** -> scan the QR.
 
-Wait for `[READY] ✓ WhatsApp bot is online` → then press `Ctrl+C`.
+Wait for `[READY] WhatsApp bot is online` then press `Ctrl+C`.
 
 Session is saved in `./session/` — you're done with QR codes forever. 🎉
 
@@ -217,24 +217,24 @@ docker ps
 
 ## 🔍 Finding a WhatsApp LID
 
-WhatsApp decided in 2023 that phone numbers are too mainstream. Now they use random-looking **LIDs** (Linked Device Identifiers) for privacy. Your number `0776076798` becomes something like `164957362593944`. Fun, right? 🙃
+WhatsApp decided in 2023 that phone numbers are too mainstream. Now they use random-looking **LIDs** (Linked Device Identifiers) for privacy. Your real number gets mapped to a long random-looking ID behind the scenes. Fun, right? 🙃
 
-**Method 1 — Use the lookup tool** (stop the bot first):
+**Method 1 - Use the lookup tool** (stop the bot first):
 ```bash
-node find-lid.js 94776076798
+node find-lid.js 94XXXXXXXXX
 ```
 
 Output:
 ```
-  ✓  94776076798    → LID/ID: 164957362593944
-                      Name: Poorna
+  ✓  94XXXXXXXXX    -> LID/ID: 112233445566778
+                      Name: Someone
 ```
 
-**Method 2 — Just send a test message:**
-The bot logs every incoming message like this:
+**Method 2 - Just send a test message:**
+The bot logs every incoming message. You will see something like:
 ```
-[MSG] | ID: 164957362593944 | Text: "Hi"
-[TIP]  If this is you, add "164957362593944" to ALLOWED_NUMBERS in .env
+[MSG] | ID: 112233445566778 | Text: "test"
+[TIP]  If this is you, add "112233445566778" to ALLOWED_NUMBERS in .env
 ```
 Copy that ID. Done.
 
@@ -267,11 +267,11 @@ No `+`, no spaces, no dashes. Just digits. It's not that deep.
 
 | Country | Number | Format for `.env` |
 |---|---|---|
-| 🇱🇰 Sri Lanka | +94 77-607-6798 | `94776076798` |
-| 🇲🇾 Malaysia | +60 12-345 6789 | `60123456789` |
-| 🇮🇳 India | +91 98765 43210 | `919876543210` |
-| 🇮🇩 Indonesia | +62 812-3456-789 | `628123456789` |
-| 🇺🇸 USA | +1 (555) 123-4567 | `15551234567` |
+| 🇱🇰 Sri Lanka | +94 7X-XXX-XXXX | `947XXXXXXXX` |
+| 🇲🇾 Malaysia | +60 1X-XXX-XXXX | `601XXXXXXXX` |
+| 🇮🇳 India | +91 9X-XXXX-XXXX | `919XXXXXXXX` |
+| 🇮🇩 Indonesia | +62 8XX-XXXX-XXX | `628XXXXXXXX` |
+| 🇺🇸 USA | +1 (XXX) XXX-XXXX | `1XXXXXXXXXX` |
 
 ---
 
@@ -289,15 +289,15 @@ sudo apt install -y chromium-browser libgbm-dev libnss3 libxss1
 ```
 
 **Bot not replying to you**
-- Check your `ALLOWED_NUMBERS` — it's probably the LID, not your phone number
+- Check your `ALLOWED_NUMBERS` - it is probably the LID, not your phone number
 - Use `node find-lid.js YOUR_NUMBER` to find the right ID
 - Check logs: `docker compose -f docker-compose.server.yml logs -f`
 
-**Private GitHub repo — need to log into ghcr.io on server**
+**Private GitHub repo - need to log into ghcr.io on server**
 ```bash
 echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 ```
-Get a token: GitHub → Settings → Developer settings → Personal access tokens → `read:packages`
+Get a token: GitHub -> Settings -> Developer settings -> Personal access tokens -> `read:packages`
 
 ---
 
