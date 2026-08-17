@@ -1,5 +1,10 @@
 # 🤖 WhatsApp Auto-Reply Bot
 
+[![Build & Push Docker Image](https://github.com/sh13y/Shyzuki-X/actions/workflows/docker-build.yml/badge.svg)](https://github.com/sh13y/Shyzuki-X/actions/workflows/docker-build.yml)
+[![Docker Image](https://ghcr-badge.egpl.dev/sh13y/shyzuki-x/size)](https://github.com/sh13y/Shyzuki-X/pkgs/container/shyzuki-x)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen?logo=node.js)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > Because replying manually is so 2020.
 
 Built with [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js). This little guy sits on your server 24/7 and sends a reply to the people you actually care about (or want to scare off). Everyone else? Ignored. Cold. Ruthless. 😈
