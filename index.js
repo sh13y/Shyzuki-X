@@ -1,12 +1,17 @@
 /**
  * WhatsApp Auto-Reply Bot
  * Built with whatsapp-web.js
- * 
+ *
  * Features:
- *  - Only replies to specific allowed phone numbers
+ *  - Replies only to allowed phone numbers / WhatsApp LIDs
  *  - Configurable reply message via .env
  *  - Session persistence (no re-scan QR on restart)
- *  - Runs well on aaPanel / Linux VPS with PM2
+ *  - Runs on Windows (dev) and aaPanel / Linux VPS (prod)
+ *
+ * NOTE on WhatsApp LID:
+ *  WhatsApp now uses "Linked Device Identifiers" (LIDs) — large random numbers —
+ *  instead of phone numbers for privacy. The bot matches BOTH formats so you
+ *  can put either the phone number or the LID in ALLOWED_NUMBERS.
  */
 
 require('dotenv').config();
@@ -15,7 +20,7 @@ const qrcode = require('qrcode-terminal');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-// Parse allowed numbers from env (comma-separated)
+// Parse allowed numbers/LIDs from env (comma-separated)
 const ALLOWED_NUMBERS = (process.env.ALLOWED_NUMBERS || '')
   .split(',')
   .map(n => n.trim())
@@ -23,6 +28,9 @@ const ALLOWED_NUMBERS = (process.env.ALLOWED_NUMBERS || '')
 
 // The reply message
 const REPLY_MESSAGE = process.env.REPLY_MESSAGE || 'Hello! This is an automated reply.';
+
+// Detect environment
+const IS_LINUX = process.platform === 'linux';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -35,21 +43,16 @@ if (ALLOWED_NUMBERS.length === 0) {
 console.log('─'.repeat(60));
 console.log('  WhatsApp Auto-Reply Bot');
 console.log('─'.repeat(60));
+console.log(`  Platform        : ${IS_LINUX ? 'Linux (aaPanel/VPS)' : 'Windows (local dev)'}`);
 console.log(`  Allowed numbers : ${ALLOWED_NUMBERS.join(', ')}`);
 console.log(`  Reply message   : "${REPLY_MESSAGE}"`);
 console.log('─'.repeat(60));
 
 // ─── WhatsApp Client Setup ────────────────────────────────────────────────────
 
-const client = new Client({
-  authStrategy: new LocalAuth({
-    // Session files are stored here — keeps you logged in after restart
-    dataPath: process.env.SESSION_PATH || '.wwebjs_auth'
-  }),
-  puppeteer: {
-    // Required for running on headless Linux servers (aaPanel / VPS)
-    headless: true,
-    args: [
+// Puppeteer args differ between Linux (VPS/aaPanel) and Windows (local dev)
+const puppeteerArgs = IS_LINUX
+  ? [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
@@ -58,98 +61,124 @@ const client = new Client({
       '--no-zygote',
       '--disable-gpu'
     ]
+  : [
+      // Windows: minimal flags — full sandbox is supported
+      '--no-first-run',
+      '--disable-extensions'
+    ];
+
+const client = new Client({
+  authStrategy: new LocalAuth({
+    dataPath: process.env.SESSION_PATH || '.wwebjs_auth'
+  }),
+  // Pin a known-good WhatsApp Web version — fixes "stuck at 99%" on some systems
+  webVersionCache: {
+    type: 'remote',
+    remotePath: 'https://raw.githubusercontent.com/wwebjs/wwebjs-nav/main/'
+  },
+  puppeteer: {
+    headless: true,
+    args: puppeteerArgs
   }
 });
 
 // ─── Event Handlers ───────────────────────────────────────────────────────────
 
-// QR Code — scan this with WhatsApp to link your account
 client.on('qr', (qr) => {
   console.log('\n[INFO] Scan the QR code below with WhatsApp:');
   qrcode.generate(qr, { small: true });
   console.log('[INFO] Go to WhatsApp > Linked Devices > Link a Device\n');
 });
 
-// Loading progress
+let lastPercent = -1;
 client.on('loading_screen', (percent, message) => {
-  console.log(`[LOADING] ${percent}% — ${message}`);
+  if (percent !== lastPercent) {
+    lastPercent = percent;
+    console.log(`[LOADING] ${percent}% — ${message}`);
+  }
 });
 
-// Authenticated
 client.on('authenticated', () => {
   console.log('[AUTH] Authentication successful! Session saved.');
 });
 
-// Authentication failure
 client.on('auth_failure', (msg) => {
-  console.error('[ERROR] Authentication failed:', msg);
-  console.error('[INFO]  Delete the .wwebjs_auth folder and restart to re-scan QR.');
+  console.error('\n[ERROR] Authentication failed:', msg);
+  console.error('[TIP]   Delete .wwebjs_auth folder and restart to re-scan QR.');
+  process.exit(1);
 });
 
-// Ready to receive messages
+// Detect if stuck at 99% — give 2 minutes then show hint
+let readyTimer = setTimeout(() => {
+  console.log('\n[WARN] Still loading... If stuck, try:');
+  console.log('       1. Delete .wwebjs_auth folder and restart');
+  console.log('       2. Check your internet connection');
+}, 120_000);
+
 client.on('ready', () => {
-  console.log('\n[READY] WhatsApp bot is online and listening for messages!\n');
+  clearTimeout(readyTimer);
+  console.log('\n[READY] ✓ WhatsApp bot is online and listening for messages!\n');
 });
 
 // ─── Message Handler ──────────────────────────────────────────────────────────
 
 client.on('message', async (message) => {
   try {
-    // message.from format: "60123456789@c.us" (individual)
-    // message.from format: "120363XXXXXXXXX@g.us" (group)
-    const senderFull = message.from; // e.g. "60123456789@c.us"
-    
-    // Extract just the number part (before the @)
-    const senderNumber = senderFull.split('@')[0];
+    const chatId  = message.from;   // "XXXXXXXX@c.us" or "XXXXXXXX@g.us"
+    const authorId = message.author; // set only for group messages
 
-    // Skip messages from groups (ends with @g.us)
-    if (senderFull.endsWith('@g.us')) {
+    // ── Skip groups ──────────────────────────────────────────────────
+    if (chatId.endsWith('@g.us')) {
       return;
     }
 
-    // Skip messages sent by this bot itself
+    // ── Skip own messages ────────────────────────────────────────────
     if (message.fromMe) {
       return;
     }
 
-    const timestamp = new Date().toLocaleString();
-    console.log(`[MSG] ${timestamp} | From: ${senderNumber} | Text: "${message.body}"`);
+    // ── Extract the sender's raw ID (before @) ───────────────────────
+    // This may be a phone number (e.g. 94776076798)
+    // OR a WhatsApp LID (e.g. 164957362593944) — both are handled
+    const senderRaw = chatId.split('@')[0];
 
-    // Check if sender is in the allowed list
-    if (ALLOWED_NUMBERS.includes(senderNumber)) {
-      console.log(`[REPLY] Sending auto-reply to ${senderNumber}...`);
+    const timestamp = new Date().toLocaleString();
+    console.log(`[MSG] ${timestamp} | ID: ${senderRaw} | Text: "${message.body}"`);
+
+    // ── Match against allowed list ───────────────────────────────────
+    if (ALLOWED_NUMBERS.includes(senderRaw)) {
+      console.log(`[REPLY] Sending auto-reply to ${senderRaw}...`);
       await message.reply(REPLY_MESSAGE);
-      console.log(`[REPLY] ✓ Sent to ${senderNumber}`);
+      console.log(`[REPLY] ✓ Sent successfully`);
     } else {
-      console.log(`[SKIP] Number ${senderNumber} is not in ALLOWED_NUMBERS — ignoring.`);
+      console.log(`[SKIP] ${senderRaw} is not in ALLOWED_NUMBERS`);
+      console.log(`[TIP]  If this is you, add "${senderRaw}" to ALLOWED_NUMBERS in .env`);
     }
   } catch (err) {
-    console.error('[ERROR] Failed to handle message:', err);
+    console.error('[ERROR] Failed to handle message:', err.message);
   }
 });
 
-// Disconnected
 client.on('disconnected', (reason) => {
-  console.warn('[WARN] Client was disconnected:', reason);
-  console.log('[INFO] Attempting to reconnect...');
-  client.initialize();
+  console.warn('\n[WARN] Disconnected from WhatsApp:', reason);
+  console.log('[INFO] Attempting to reconnect in 5 seconds...');
+  setTimeout(() => client.initialize(), 5000);
 });
 
 // ─── Start Bot ────────────────────────────────────────────────────────────────
 
-console.log('[INIT] Starting WhatsApp client...');
+console.log('[INIT] Starting WhatsApp client...\n');
 client.initialize();
 
 // ─── Graceful Shutdown ────────────────────────────────────────────────────────
 
-process.on('SIGINT', async () => {
-  console.log('\n[SHUTDOWN] Gracefully shutting down...');
-  await client.destroy();
+async function shutdown(signal) {
+  console.log(`\n[SHUTDOWN] Received ${signal}, shutting down gracefully...`);
+  try {
+    await client.destroy();
+  } catch (_) { /* ignore */ }
   process.exit(0);
-});
+}
 
-process.on('SIGTERM', async () => {
-  console.log('\n[SHUTDOWN] Received SIGTERM, shutting down...');
-  await client.destroy();
-  process.exit(0);
-});
+process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
